@@ -3,12 +3,12 @@
 import { useState, useEffect } from "react"
 import { useAuth } from "@/context/AuthContext"
 import { useRouter, useParams } from "next/navigation"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { ThemeToggle } from "@/components/theme-toggle"
 import { apiClient } from "@/lib/apiClient"
 import type { Camera, CameraDetailResponse } from "@/types/camera"
-import { Loader2, ArrowLeft, Trash2 } from "lucide-react"
+import { Loader2, ArrowLeft, Trash2, Video } from "lucide-react"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import {
   AlertDialog,
@@ -116,10 +116,20 @@ export default function CameraDetailPage() {
             <CardTitle>{cameraId}</CardTitle>
             <CardDescription>Camera details and configuration</CardDescription>
           </div>
-          <Button variant="destructive" onClick={() => setShowDeleteDialog(true)} disabled={loading || isDeleting}>
-            <Trash2 className="mr-2 h-4 w-4" />
-            Delete Camera
-          </Button>
+          <div className="flex gap-2">
+            <Button
+              variant="outline"
+              onClick={() => router.push(`/cameras/${cameraId}/stream`)}
+              disabled={loading || !camera?.stream_url}
+            >
+              <Video className="mr-2 h-4 w-4" />
+              View Stream
+            </Button>
+            <Button variant="destructive" onClick={() => setShowDeleteDialog(true)} disabled={loading || isDeleting}>
+              <Trash2 className="mr-2 h-4 w-4" />
+              Delete Camera
+            </Button>
+          </div>
         </CardHeader>
         <CardContent>
           {loading ? (
@@ -191,6 +201,14 @@ export default function CameraDetailPage() {
             </div>
           )}
         </CardContent>
+        {camera && camera.stream_url && (
+          <CardFooter>
+            <Button className="w-full" onClick={() => router.push(`/cameras/${cameraId}/stream`)}>
+              <Video className="mr-2 h-4 w-4" />
+              View Live Stream
+            </Button>
+          </CardFooter>
+        )}
       </Card>
 
       <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
