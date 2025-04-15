@@ -39,15 +39,25 @@ export function DetectionToggle({ cameraId, initialStatus, onStatusChange, disab
       } else {
         throw new Error("Failed to update detection status")
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error toggling detection:", error)
 
-      toast({
-        title: "Error",
-        description: `Failed to ${isDetectionRunning ? "stop" : "start"} detection. Please try again.`,
-        variant: "destructive",
-        duration: 5000,
-      })
+      // Handle 404 errors specifically
+      if (error.response?.status === 404) {
+        toast({
+          title: "Feature Not Available",
+          description: "Detection control is not available for this camera",
+          variant: "destructive",
+          duration: 5000,
+        })
+      } else {
+        toast({
+          title: "Error",
+          description: `Failed to ${isDetectionRunning ? "stop" : "start"} detection. Please try again.`,
+          variant: "destructive",
+          duration: 5000,
+        })
+      }
 
       // Revert the UI state
       setIsDetectionRunning(initialStatus)

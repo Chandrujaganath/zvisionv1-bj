@@ -15,10 +15,11 @@ export function StreamPlayer({ streamUrl, isLoading, error }: StreamPlayerProps)
   const [playerError, setPlayerError] = useState<string | null>(null)
   const imgRef = useRef<HTMLImageElement>(null)
   const videoRef = useRef<HTMLVideoElement>(null)
-  const [streamType, setStreamType] = useState<"mjpeg" | "hls" | "unknown">("unknown")
+  const [streamType, setStreamType] = useState<"mjpeg" | "hls" | "mp4" | "unknown">("unknown")
 
   useEffect(() => {
     if (!streamUrl) return
+    setPlayerError(null)
 
     // Determine stream type based on URL or content type
     if (streamUrl.includes("mjpeg") || streamUrl.endsWith(".mjpg") || streamUrl.endsWith(".mjpeg")) {
@@ -37,10 +38,14 @@ export function StreamPlayer({ streamUrl, isLoading, error }: StreamPlayerProps)
         .catch(() => {
           setPlayerError("Failed to load HLS player")
         })
+    } else if (streamUrl.endsWith(".mp4")) {
+      setStreamType("mp4")
     } else {
       // Try to detect based on response headers or just default to video tag
       setStreamType("unknown")
     }
+
+    console.log(`Stream URL: ${streamUrl}, detected type: ${streamType}`)
   }, [streamUrl])
 
   const handleImageError = () => {
@@ -97,7 +102,7 @@ export function StreamPlayer({ streamUrl, isLoading, error }: StreamPlayerProps)
         ) : (
           <video
             ref={videoRef}
-            src={streamType === "unknown" ? streamUrl : undefined}
+            src={streamType === "unknown" || streamType === "mp4" ? streamUrl : undefined}
             className="w-full h-auto"
             controls
             autoPlay

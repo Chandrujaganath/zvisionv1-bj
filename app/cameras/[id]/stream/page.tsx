@@ -8,22 +8,13 @@ import { Button } from "@/components/ui/button"
 import { ThemeToggle } from "@/components/theme-toggle"
 import { apiClient } from "@/lib/apiClient"
 import type { Camera, CameraDetailResponse } from "@/types/camera"
-import type { DetectionResponse, StreamResponse } from "@/types/stream"
+import type { StreamResponse } from "@/types/stream"
 import { Loader2, ArrowLeft } from "lucide-react"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { StreamPlayer } from "@/components/stream-player"
 import { DetectionToggle } from "@/components/detection-toggle"
 import { Separator } from "@/components/ui/separator"
 import { Toaster } from "@/components/ui/toaster"
-
-// Add this helper function at the top of the file, after the imports
-const tryParseJson = (jsonString: string) => {
-  try {
-    return JSON.parse(jsonString)
-  } catch (e) {
-    return null
-  }
-}
 
 export default function StreamPage() {
   const { isAuthenticated, logout } = useAuth()
@@ -36,13 +27,14 @@ export default function StreamPage() {
   const [isDetectionRunning, setIsDetectionRunning] = useState<boolean>(false)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [detectionEndpointAvailable, setDetectionEndpointAvailable] = useState(true)
 
   const fetchCameraAndStreamInfo = async () => {
     setLoading(true)
     setError(null)
 
     try {
-      // Fetch camera details
+      // Fetch camera details first to get basic info
       const cameraResponse = await apiClient.get<CameraDetailResponse>(`/cameras/${cameraId}`)
 
       if (cameraResponse.data.success) {
@@ -52,55 +44,40 @@ export default function StreamPage() {
         }
         setCamera(cameraData)
 
-        // Check if there's a direct stream_url in camera data
-        if (cameraData.stream_url) {
-          setStreamUrl(cameraData.stream_url)
-        } else {
-          // Look for stream_url in nested objects or JSON strings
-          let foundStreamUrl = false
+        // Now fetch the stream URL from the correct endpoint
+        try {
+          const streamResponse = await apiClient.get<StreamResponse>(`/stream/${cameraId}`)
+          if (streamResponse.data.success && streamResponse.data.data.stream_url) {
+            setStreamUrl(streamResponse.data.data.stream_url)
+          } else {
+            // Fallback to camera.stream_url if available
+            setStreamUrl(cameraData.stream_url || null)
+          }
+        } catch (streamErr) {
+          console.error("Error fetching stream info:", streamErr)
+          // Fallback to camera.stream_url if available
+          setStreamUrl(cameraData.stream_url || null)
 
-          Object.entries(cameraData).forEach(([key, value]) => {
-            if (typeof value === "object" && value !== null) {
-              // Try to parse string JSON objects
-              const objValue = typeof value === "string" ? tryParseJson(value) : value
-
-              if (objValue && typeof objValue === "object" && "stream_url" in objValue) {
-                setStreamUrl(objValue.stream_url)
-                foundStreamUrl = true
-              }
-            } else if (typeof value === "string") {
-              // Try to extract stream_url from string representation of JSON
-              const match = value.match(/"stream_url"\s*:\s*"([^"]+)"/)
-              if (match && match[1]) {
-                setStreamUrl(match[1])
-                foundStreamUrl = true
-              }
-            }
-          })
-
-          // If we still don't have a stream URL, try the stream endpoint
-          if (!foundStreamUrl) {
-            try {
-              const streamResponse = await apiClient.get<StreamResponse>(`/stream/${cameraId}`)
-              if (streamResponse.data.success) {
-                setStreamUrl(streamResponse.data.data.stream_url)
-              }
-            } catch (streamErr) {
-              console.error("Error fetching stream info:", streamErr)
-              setError("Stream information not available")
-            }
+          if (!cameraData.stream_url) {
+            setError("Stream information not available")
           }
         }
 
-        // Fetch detection status
+        // Try to fetch detection status, but handle 404 gracefully
         try {
-          const detectionResponse = await apiClient.get<DetectionResponse>(`/cameras/${cameraId}/detection/status`)
+          const detectionResponse = await apiClient.get(`/cameras/${cameraId}/detection/status`)
           if (detectionResponse.data.success) {
             setIsDetectionRunning(detectionResponse.data.data.status === "running")
           }
-        } catch (detectionErr) {
+        } catch (detectionErr: any) {
           console.error("Error fetching detection status:", detectionErr)
-          // Don't set error, just default to not running
+
+          // If endpoint doesn't exist (404), mark it as unavailable
+          if (detectionErr.response?.status === 404) {
+            setDetectionEndpointAvailable(false)
+          }
+
+          // Default to not running
           setIsDetectionRunning(false)
         }
       } else {
@@ -180,12 +157,16 @@ export default function StreamPage() {
               <Separator />
 
               <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-                <DetectionToggle
-                  cameraId={cameraId}
-                  initialStatus={isDetectionRunning}
-                  onStatusChange={handleDetectionStatusChange}
-                  disabled={loading || !streamUrl}
-                />
+                {detectionEndpointAvailable ? (
+                  <DetectionToggle
+                    cameraId={cameraId}
+                    initialStatus={isDetectionRunning}
+                    onStatusChange={handleDetectionStatusChange}
+                    disabled={loading || !streamUrl}
+                  />
+                ) : (
+                  <div className="text-sm text-muted-foreground">Detection controls not available for this camera</div>
+                )}
 
                 <Button variant="outline" onClick={() => router.push(`/cameras/${cameraId}`)}>
                   Camera Details
