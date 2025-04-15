@@ -22,6 +22,26 @@ import {
 } from "@/components/ui/alert-dialog"
 import { Badge } from "@/components/ui/badge"
 
+// Add this helper function at the top of the file, after the imports
+const tryParseJson = (jsonString: string) => {
+  try {
+    return JSON.parse(jsonString)
+  } catch (e) {
+    // If it's not valid JSON, try to parse it as a stringified object
+    try {
+      // Handle cases where the JSON might be represented as a string in the UI
+      // This regex extracts content between quotes that looks like JSON
+      const match = jsonString.match(/"stream_url"\s*:\s*"([^"]+)"/)
+      if (match && match[1]) {
+        return { stream_url: match[1] }
+      }
+    } catch (e) {
+      // Ignore parsing errors
+    }
+    return null
+  }
+}
+
 export default function CameraDetailPage() {
   const { isAuthenticated, logout } = useAuth()
   const router = useRouter()
@@ -42,10 +62,27 @@ export default function CameraDetailPage() {
       const response = await apiClient.get<CameraDetailResponse>(`/cameras/${cameraId}`)
 
       if (response.data.success) {
-        setCamera({
+        const cameraData = {
           id: cameraId,
           ...response.data.data,
-        })
+        }
+
+        // Check if there's a nested stream_url in any of the properties
+        // This handles cases where stream_url might be in a nested JSON object
+        if (!cameraData.stream_url) {
+          Object.entries(cameraData).forEach(([key, value]) => {
+            if (typeof value === "object" && value !== null) {
+              // Try to parse string JSON objects
+              const objValue = typeof value === "string" ? tryParseJson(value) : value
+
+              if (objValue && typeof objValue === "object" && "stream_url" in objValue) {
+                cameraData.stream_url = objValue.stream_url
+              }
+            }
+          })
+        }
+
+        setCamera(cameraData)
       } else {
         setError("Failed to load camera details")
       }

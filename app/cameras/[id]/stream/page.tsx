@@ -16,6 +16,15 @@ import { DetectionToggle } from "@/components/detection-toggle"
 import { Separator } from "@/components/ui/separator"
 import { Toaster } from "@/components/ui/toaster"
 
+// Add this helper function at the top of the file, after the imports
+const tryParseJson = (jsonString: string) => {
+  try {
+    return JSON.parse(jsonString)
+  } catch (e) {
+    return null
+  }
+}
+
 export default function StreamPage() {
   const { isAuthenticated, logout } = useAuth()
   const router = useRouter()
@@ -43,19 +52,43 @@ export default function StreamPage() {
         }
         setCamera(cameraData)
 
-        // Use stream_url from camera data if available
+        // Check if there's a direct stream_url in camera data
         if (cameraData.stream_url) {
           setStreamUrl(cameraData.stream_url)
         } else {
-          // Otherwise, try to fetch stream info
-          try {
-            const streamResponse = await apiClient.get<StreamResponse>(`/stream/${cameraId}`)
-            if (streamResponse.data.success) {
-              setStreamUrl(streamResponse.data.data.stream_url)
+          // Look for stream_url in nested objects or JSON strings
+          let foundStreamUrl = false
+
+          Object.entries(cameraData).forEach(([key, value]) => {
+            if (typeof value === "object" && value !== null) {
+              // Try to parse string JSON objects
+              const objValue = typeof value === "string" ? tryParseJson(value) : value
+
+              if (objValue && typeof objValue === "object" && "stream_url" in objValue) {
+                setStreamUrl(objValue.stream_url)
+                foundStreamUrl = true
+              }
+            } else if (typeof value === "string") {
+              // Try to extract stream_url from string representation of JSON
+              const match = value.match(/"stream_url"\s*:\s*"([^"]+)"/)
+              if (match && match[1]) {
+                setStreamUrl(match[1])
+                foundStreamUrl = true
+              }
             }
-          } catch (streamErr) {
-            console.error("Error fetching stream info:", streamErr)
-            setError("Stream information not available")
+          })
+
+          // If we still don't have a stream URL, try the stream endpoint
+          if (!foundStreamUrl) {
+            try {
+              const streamResponse = await apiClient.get<StreamResponse>(`/stream/${cameraId}`)
+              if (streamResponse.data.success) {
+                setStreamUrl(streamResponse.data.data.stream_url)
+              }
+            } catch (streamErr) {
+              console.error("Error fetching stream info:", streamErr)
+              setError("Stream information not available")
+            }
           }
         }
 
