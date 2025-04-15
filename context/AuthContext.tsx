@@ -47,8 +47,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           localStorage.setItem("auth-token", newToken)
         }
 
-        // Redirect to cameras page
-        router.push("/cameras")
+        // Force a redirect to cameras page with replace to avoid history issues
+        console.log("Login successful, redirecting to /cameras")
+        router.replace("/cameras")
         return
       }
 

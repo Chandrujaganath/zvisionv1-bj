@@ -43,7 +43,16 @@ export default function LoginPage() {
       return
     }
 
-    await login(username, password)
+    try {
+      await login(username, password)
+      // If login doesn't throw an error, it was successful
+      // Let's add an explicit navigation here as a backup
+      console.log("Login form submission successful")
+      router.push("/cameras")
+    } catch (error) {
+      console.error("Login error caught in form:", error)
+      // Error is already handled in the login function
+    }
   }
 
   return (

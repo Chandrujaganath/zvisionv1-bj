@@ -12,6 +12,7 @@ import { CameraCard } from "@/components/camera-card"
 import { Loader2, Plus } from "lucide-react"
 import { AddCameraDialog } from "@/components/add-camera-dialog"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
+import { AuthDebugger } from "@/components/auth-debugger"
 
 export default function CamerasPage() {
   const { isAuthenticated, logout } = useAuth()
@@ -133,6 +134,7 @@ export default function CamerasPage() {
       </Card>
 
       <AddCameraDialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen} onCameraAdded={handleCameraAdded} />
+      <AuthDebugger />
     </div>
   )
 }

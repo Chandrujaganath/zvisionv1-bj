@@ -8,12 +8,16 @@ export function middleware(request: NextRequest) {
     return NextResponse.next()
   }
 
-  // Get token from local storage (client-side) or from session cookies (server-side)
+  // Get token from cookies
   const token = request.cookies.get("auth-token")?.value
 
-  // Check if token exists (this is a simplified version)
-  if (!token && !request.nextUrl.pathname.startsWith("/login")) {
-    // We can't read localStorage in middleware, so we'll do additional checks in components
+  // Also check for token in authorization header as a fallback
+  const authHeader = request.headers.get("authorization")
+  const headerToken = authHeader ? authHeader.replace("Bearer ", "") : null
+
+  // Check if token exists in either cookies or header
+  if (!token && !headerToken && !request.nextUrl.pathname.startsWith("/login")) {
+    console.log("No token found, redirecting to login")
     return NextResponse.redirect(new URL("/login", request.url))
   }
 
